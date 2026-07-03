@@ -1,0 +1,31 @@
+[package]
+name = "rek0n-db"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+authors = ["kon"]
+description = "Lightweight mmap-backed exact vector search for rek0n"
+readme = "README.md"
+license = "MIT"
+repository = "https://github.com/K48N/rek0n-db"
+homepage = "https://github.com/K48N/rek0n-db"
+keywords = ["vector-search", "embeddings", "mmap", "rag"]
+categories = ["database", "science"]
+exclude = ["/target"]
+
+[lib]
+name = "rek0n_db"
+path = "src/lib.rs"
+
+[dependencies]
+memmap2 = "0.9"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+
+[dev-dependencies]
+tempfile = "3"
+
+[[example]]
+name = "index_and_search"
+path = "examples/index_and_search.rs"
