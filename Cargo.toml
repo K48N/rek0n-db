@@ -2,7 +2,7 @@
 name = "rek0n-db"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.86"
 authors = ["kon"]
 description = "Lightweight mmap-backed exact vector search for rek0n"
 readme = "README.md"
