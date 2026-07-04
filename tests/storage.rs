@@ -41,6 +41,7 @@ fn indexes_searches_deletes_replaces_and_reopens() -> Result<(), rek0n_db::DbErr
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].record.start_line, 40);
 
+    drop(db);
     let reopened = Rek0nDb::open(dir.path())?;
     assert_eq!(reopened.live_persistent_count(), 2);
     let hits = reopened.search(&unit_vector(40), 1)?;
@@ -67,6 +68,7 @@ fn staging_flush_survives_reopen() -> Result<(), rek0n_db::DbError> {
     assert_eq!(db.staging_count(), 0);
     assert_eq!(db.live_persistent_count(), 2);
 
+    drop(db);
     let reopened = Rek0nDb::open(dir.path())?;
     let hits = reopened.search(&v1, 1)?;
     assert_eq!(hits[0].record.file_path, "src/b.rs");
@@ -79,7 +81,7 @@ fn compact_reclaims_tombstoned_space() -> Result<(), rek0n_db::DbError> {
     let dir = tempfile::tempdir().expect("tempdir");
     let mut db = Rek0nDb::open(dir.path())?.with_compaction_policy(CompactionPolicy {
         dead_ratio_threshold: 0.0,
-    });
+    })?;
 
     db.insert_persistent(&unit_vector(0), &chunk_record("src/a.rs", 1))?;
     db.insert_persistent(&unit_vector(1), &chunk_record("src/b.rs", 1))?;
@@ -106,6 +108,7 @@ fn reset_clears_persistent_and_staging_state() -> Result<(), rek0n_db::DbError> 
     assert_eq!(db.staging_count(), 0);
     assert_eq!(db.tombstone_count(), 0);
 
+    drop(db);
     let reopened = Rek0nDb::open(dir.path())?;
     assert!(reopened.is_empty());
 
@@ -125,6 +128,34 @@ fn rejects_mismatched_vector_dimension_on_insert() {
         rek0n_db::DbError::InvalidDimension { expected, got }
         if expected == EMBEDDING_DIM && got == EMBEDDING_DIM - 1
     ));
+}
+
+#[test]
+fn build_ivf_index_rejects_zero_buckets() -> Result<(), rek0n_db::DbError> {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut db = Rek0nDb::open(dir.path())?;
+    db.insert_persistent(&unit_vector(0), &chunk_record("src/a.rs", 1))?;
+
+    let err = db.build_ivf_index(0, 1).expect_err("zero buckets");
+    assert!(matches!(err, rek0n_db::DbError::InvalidIvfBucketCount));
+
+    Ok(())
+}
+
+#[test]
+fn insert_staging_metadata_preserves_windows_style_paths() -> Result<(), rek0n_db::DbError> {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let mut db = Rek0nDb::open(dir.path())?;
+
+    let v = unit_vector(0);
+    db.insert_staging_metadata(&v, "C:\\src\\main.rs:10:20")?;
+
+    let hits = db.search(&v, 1)?;
+    assert_eq!(hits[0].record.file_path, "C:\\src\\main.rs");
+    assert_eq!(hits[0].record.start_line, 10);
+    assert_eq!(hits[0].record.end_line, 20);
+
+    Ok(())
 }
 
 #[test]

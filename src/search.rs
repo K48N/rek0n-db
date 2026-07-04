@@ -76,6 +76,8 @@ impl Rek0nDb {
             return Err(DbError::InvalidSearchLimit);
         }
 
+        self.persistent_vectors()?;
+
         let candidates = self.resolve_candidates(query, &scope, strategy)?;
         let mut heap = BinaryHeap::with_capacity(k.min(self.len().max(1)));
 
@@ -187,17 +189,10 @@ impl Rek0nDb {
             return;
         };
 
-        let record = self
-            .record_for_id(id)
-            .cloned()
-            .unwrap_or_else(|| ChunkRecord {
-                text: String::new(),
-                kind: "Unknown".into(),
-                name: None,
-                file_path: String::new(),
-                start_line: 0,
-                end_line: 0,
-            });
+        let record = match self.record_for_id(id).cloned() {
+            Some(record) => record,
+            None => return,
+        };
 
         let score = dot_product(query, vector);
         push_candidate(heap, k, Candidate { score, id, record });

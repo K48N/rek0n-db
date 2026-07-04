@@ -1,33 +1,20 @@
 //! Lightweight mmap-backed exact vector search for [rek0n](https://github.com/K48N/rek0n).
-//!
-//! `rek0n-db` is the "SQLite of vector databases": append-only `f32` vectors,
-//! JSON manifest sidecar, tombstones with lazy compaction, inverted posting
-//! lists for scoped search, and an optional IVF-lite ANN tier.
-//!
-//! # Two-tier architecture
-//!
-//! - **Persistent tier** — memory-mapped append-only `vectors.bin`.
-//! - **Staging tier** — in-memory vectors for MCTS / ephemeral branches.
-//!
-//! # Search tiers
-//!
-//! - **Tier 0** — exact dot-product over all live vectors.
-//! - **Tier 1** — exact search restricted by [`SearchScope`] posting filters.
-//! - **Tier 2** — [`AnnStrategy::Ivf`] probes nearest centroid buckets first.
-//! - **Tier 3** — [`AnnStrategy::Hnsw`] reserved for future `rek0n-search` integration.
 
 mod compact;
 mod ivf;
+mod lock;
 mod postings;
 mod search;
 mod storage;
 mod types;
 
+pub use lock::{DbLockOptions, DEFAULT_LOCK_TIMEOUT};
 pub use search::{dot_product, SearchHit};
 pub use storage::Rek0nDb;
 pub use types::{
     AnnStrategy, ChunkRecord, CompactionPolicy, CompactionStats, DbError, Point, SearchScope,
     VectorId, DEFAULT_COMPACT_THRESHOLD, DEFAULT_IVF_BUCKETS, DEFAULT_IVF_PROBE, EMBEDDING_DIM,
+    MAX_MANIFEST_BYTES, MAX_RECORD_TEXT_BYTES, MAX_STAGING_VECTORS, MAX_VECTORS_BYTES,
 };
 
 #[doc(hidden)]

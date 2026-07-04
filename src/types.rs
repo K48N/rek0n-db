@@ -15,6 +15,21 @@ pub const DEFAULT_IVF_PROBE: usize = 3;
 /// Default dead-vector ratio before lazy compaction runs.
 pub const DEFAULT_COMPACT_THRESHOLD: f32 = 0.25;
 
+/// Maximum `manifest.json` size accepted at open.
+pub const MAX_MANIFEST_BYTES: usize = 64 * 1024 * 1024;
+
+/// Maximum metadata text length stored per chunk record.
+pub const MAX_RECORD_TEXT_BYTES: usize = 262_144;
+
+/// Maximum `vectors.bin` size accepted at open.
+pub const MAX_VECTORS_BYTES: u64 = 512 * 1024 * 1024;
+
+/// Maximum vectors held in the in-memory staging tier before flush.
+#[cfg(test)]
+pub const MAX_STAGING_VECTORS: usize = 4;
+#[cfg(not(test))]
+pub const MAX_STAGING_VECTORS: usize = 100_000;
+
 /// A single indexed vector with its external metadata key.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Point {
@@ -101,6 +116,19 @@ impl Default for CompactionPolicy {
     }
 }
 
+impl CompactionPolicy {
+    pub fn validate(self) -> Result<Self, DbError> {
+        if !self.dead_ratio_threshold.is_finite()
+            || !(0.0..=1.0).contains(&self.dead_ratio_threshold)
+        {
+            return Err(DbError::InvalidCompactionPolicy {
+                threshold: self.dead_ratio_threshold,
+            });
+        }
+        Ok(self)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CompactionStats {
     pub vectors_before: usize,
@@ -109,6 +137,7 @@ pub struct CompactionStats {
 }
 
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum DbError {
     #[error("I/O error at {path}: {source}")]
     Io {
@@ -152,6 +181,67 @@ pub enum DbError {
 
     #[error("vector offset missing for id {id}")]
     MissingOffset { id: VectorId },
+
+    #[error("IVF bucket count must be greater than zero")]
+    InvalidIvfBucketCount,
+
+    #[error("corrupt manifest: invalid vector id {value:?}")]
+    InvalidManifestId { value: String },
+
+    #[error("replace_file: record file_path {got:?} does not match target {expected:?}")]
+    FilePathMismatch { expected: String, got: String },
+
+    #[error("vector id space exhausted")]
+    IdExhausted,
+
+    #[error("manifest is {len} bytes, exceeding limit of {max}")]
+    ManifestTooLarge { len: usize, max: usize },
+
+    #[error("vectors.bin is {len} bytes, exceeding limit of {max}")]
+    VectorsFileTooLarge { len: u64, max: u64 },
+
+    #[error("unsupported manifest version {got}, expected {expected}")]
+    UnsupportedManifestVersion { got: u32, expected: u32 },
+
+    #[error("corrupt manifest: vector offset for id {id} extends past vectors.bin")]
+    CorruptVectorOffset { id: VectorId },
+
+    #[error("database lock timed out at {path}")]
+    LockTimeout { path: String },
+
+    #[error("database opened read-only")]
+    ReadOnly,
+
+    #[error("record text is {len} bytes, exceeding limit of {max}")]
+    RecordTextTooLarge { len: usize, max: usize },
+
+    #[error("compaction dead_ratio_threshold {threshold} must be finite and in [0.0, 1.0]")]
+    InvalidCompactionPolicy { threshold: f32 },
+
+    #[error("staging tier holds {count} vectors, exceeding limit of {max}")]
+    StagingCapacityExceeded { count: usize, max: usize },
+
+    #[error("cannot change embedding dimension on a non-empty database")]
+    DimensionChangeOnNonEmptyDb,
+
+    #[error("corrupt manifest: records and offsets key sets differ")]
+    CorruptManifestKeyMismatch,
+
+    #[error("corrupt manifest: tombstone id {id} has no record")]
+    CorruptManifestTombstone { id: VectorId },
+
+    #[error("corrupt manifest: duplicate vector offset {offset} for ids {first} and {second}")]
+    DuplicateVectorOffset {
+        offset: u64,
+        first: VectorId,
+        second: VectorId,
+    },
+
+    #[error("corrupt manifest: vectors.bin size {file_len} is smaller than required {required}")]
+    VectorsFileTooSmall { file_len: usize, required: usize },
+
+    #[error("corrupt centroids.bin: {reason}")]
+    CorruptCentroids { reason: String },
 }
 
 impl DbError {

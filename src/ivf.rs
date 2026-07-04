@@ -73,6 +73,9 @@ pub fn build_ivf_index(
     vectors: &[f32],
     id_offsets: &HashMap<VectorId, u64>,
 ) -> Result<IvfIndex, DbError> {
+    if num_buckets == 0 {
+        return Err(DbError::InvalidIvfBucketCount);
+    }
     if live_ids.len() < num_buckets {
         return Err(DbError::InsufficientVectorsForIvf {
             live: live_ids.len(),
@@ -102,13 +105,25 @@ pub fn centroids_path(dir: &std::path::Path) -> std::path::PathBuf {
 }
 
 pub fn write_centroids(path: &std::path::Path, centroids: &[f32]) -> Result<(), DbError> {
+    use std::fs::{self, File};
+    use std::io::Write;
+
     let bytes = unsafe {
         std::slice::from_raw_parts(
             centroids.as_ptr().cast::<u8>(),
             std::mem::size_of_val(centroids),
         )
     };
-    std::fs::write(path, bytes).map_err(|source| DbError::io_path(path, source))
+
+    let tmp_path = path.with_extension("bin.tmp");
+    let mut file =
+        File::create(&tmp_path).map_err(|source| DbError::io_path(&tmp_path, source))?;
+    file.write_all(bytes)
+        .map_err(|source| DbError::io_path(&tmp_path, source))?;
+    file.sync_all()
+        .map_err(|source| DbError::io_path(&tmp_path, source))?;
+    drop(file);
+    fs::rename(&tmp_path, path).map_err(|source| DbError::io_path(path, source))
 }
 
 pub fn read_centroids(
@@ -123,7 +138,9 @@ pub fn read_centroids(
     }
     let mut centroids = vec![0.0_f32; num_buckets * dim];
     for (index, chunk) in bytes.chunks_exact(4).enumerate() {
-        let bytes: [u8; 4] = chunk.try_into().expect("chunk");
+        let bytes: [u8; 4] = chunk
+            .try_into()
+            .map_err(|_| DbError::InvalidVectorBytes { len: bytes.len() })?;
         centroids[index] = f32::from_le_bytes(bytes);
     }
     Ok(centroids)
