@@ -74,10 +74,7 @@ fn rejects_staging_capacity_exceeded() -> Result<(), rek0n_db::DbError> {
     let dir = tempfile::tempdir().expect("tempdir");
     let mut db = Rek0nDb::open(dir.path())?;
     for index in 0..MAX_STAGING_VECTORS {
-        db.insert_staging(
-            &unit_vector(index),
-            &chunk_record("src/a.rs", index as u64),
-        )?;
+        db.insert_staging(&unit_vector(index), &chunk_record("src/a.rs", index as u64))?;
     }
 
     let err = db
@@ -104,5 +101,8 @@ fn corrupt_vector_bytes_fail_open() {
     std::fs::write(dir.path().join("vectors.bin"), b"bad").expect("corrupt");
 
     let err = Rek0nDb::open(dir.path());
-    assert!(matches!(err, Err(rek0n_db::DbError::CorruptVectorOffset { .. })));
+    assert!(matches!(
+        err,
+        Err(rek0n_db::DbError::CorruptVectorOffset { .. })
+    ));
 }

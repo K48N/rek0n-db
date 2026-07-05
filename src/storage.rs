@@ -136,13 +136,7 @@ impl Rek0nDb {
         let records = decode_record_map(&manifest.records)?;
         let id_offsets = decode_offset_map(&manifest.offsets)?;
         let tombstones: HashSet<VectorId> = manifest.tombstones.into_iter().collect();
-        validate_open_state(
-            manifest.dim,
-            &records,
-            &id_offsets,
-            &tombstones,
-            mmap.len(),
-        )?;
+        validate_open_state(manifest.dim, &records, &id_offsets, &tombstones, mmap.len())?;
         let ivf = load_ivf(&dir, manifest.dim, manifest.ivf)?;
 
         Ok(Self {
@@ -894,8 +888,7 @@ fn write_manifest(path: &Path, manifest: &Manifest) -> Result<(), DbError> {
 
 fn write_vector_file(path: &Path, vectors: &[f32]) -> Result<(), DbError> {
     let tmp_path = path.with_extension("bin.tmp");
-    let mut file =
-        File::create(&tmp_path).map_err(|source| DbError::io_path(&tmp_path, source))?;
+    let mut file = File::create(&tmp_path).map_err(|source| DbError::io_path(&tmp_path, source))?;
     file.write_all(f32_slice_as_bytes(vectors))
         .map_err(|source| DbError::io_path(&tmp_path, source))?;
     file.sync_all()

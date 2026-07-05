@@ -116,8 +116,7 @@ pub fn write_centroids(path: &std::path::Path, centroids: &[f32]) -> Result<(), 
     };
 
     let tmp_path = path.with_extension("bin.tmp");
-    let mut file =
-        File::create(&tmp_path).map_err(|source| DbError::io_path(&tmp_path, source))?;
+    let mut file = File::create(&tmp_path).map_err(|source| DbError::io_path(&tmp_path, source))?;
     file.write_all(bytes)
         .map_err(|source| DbError::io_path(&tmp_path, source))?;
     file.sync_all()
