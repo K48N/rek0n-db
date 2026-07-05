@@ -227,6 +227,26 @@ impl Rek0nDb {
         self.staging_order.len()
     }
 
+    /// Live vectors (persistent + staging) for a single repository path.
+    pub fn count_rows_for_file(&self, file_path: &str) -> usize {
+        let persistent = self
+            .postings
+            .by_file
+            .get(file_path)
+            .map(|ids| {
+                ids.iter()
+                    .filter(|id| !self.tombstones.contains(id))
+                    .count()
+            })
+            .unwrap_or(0);
+        let staging = self
+            .staging_records
+            .values()
+            .filter(|record| record.file_path == file_path)
+            .count();
+        persistent + staging
+    }
+
     pub fn has_ivf_index(&self) -> bool {
         self.ivf.is_some()
     }

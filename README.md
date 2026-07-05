@@ -1,6 +1,6 @@
 # rek0n-db
 
-Part of [rek0n](https://github.com/K48N/rek0n). Stores and searches 384-dimensional code embeddings on disk with mmap and exact dot product.
+Stores and searches 384-dimensional code embeddings on disk with mmap and exact dot product.
 
 ## Overview
 
