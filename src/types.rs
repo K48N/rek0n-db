@@ -73,7 +73,7 @@ pub struct SearchScope<'a> {
     pub include_staging: bool,
 }
 
-impl<'a> SearchScope<'a> {
+impl SearchScope<'_> {
     pub fn all() -> Self {
         Self {
             include_staging: true,
